@@ -1,20 +1,29 @@
-# Use a lightweight Node.js image
-FROM node:18-slim
+# Use Puppeteer base image
+FROM ghcr.io/puppeteer/puppeteer:24.2.0
+
+# Switch to root to install system dependencies
+USER root
 
 # Install dependencies
-RUN apt-get update && apt-get install -y wget unzip \
-    && wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb \
-    && apt-get install -y ./google-chrome-stable_current_amd64.deb \
-    && rm -rf /var/lib/apt/lists/* ./google-chrome-stable_current_amd64.deb
+RUN apt-get update && apt-get install -y wget unzip gnupg
 
-# Set working directory
+# Install Google Chrome
+RUN wget -qO- https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor > /usr/share/keyrings/google-chrome-keyring.gpg \
+    && echo 'deb [signed-by=/usr/share/keyrings/google-chrome-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main' | tee /etc/apt/sources.list.d/google-chrome.list \
+    && apt-get update \
+    && apt-get install -y google-chrome-stable
+
+# Switch back to the non-root user (default user in Puppeteer image)
+USER pptruser
+
+# Set the working directory
 WORKDIR /usr/src/app
 
 # Copy package.json and install dependencies
-COPY package*.json ./
+COPY package.json ./
 RUN npm install
 
-# Copy the entire project
+# Copy the rest of the application files
 COPY . .
 
 # Expose the port

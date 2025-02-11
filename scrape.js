@@ -1,7 +1,6 @@
-import puppeteer from "puppeteer";
+import puppeteer, { executablePath } from "puppeteer";
 import { dbConnect } from "./db.js";
 import { Word } from "./wordmodel.js";
-import cron from "node-cron";
 
 let isScraperRunning = false; // Prevent overlapping executions
 
@@ -17,8 +16,7 @@ export const scrapeWord = async () => {
   console.log("✅ Scraper started...");
 
   const browser = await puppeteer.launch({
-    executablePath:
-      process.env.CHROME_EXECUTABLE_PATH || "/usr/bin/google-chrome-stable",
+    executablePath: "/usr/bin/google-chrome-stable",
     headless: true,
     args: [
       "--no-sandbox",
@@ -124,7 +122,3 @@ export const scrapeWord = async () => {
 scrapeWord();
 
 // Schedule scraper to run every 2 minutes
-cron.schedule("*/5 * * * *", () => {
-  console.log("🔄 Running scheduled scraper job...");
-  scrapeWord();
-});
