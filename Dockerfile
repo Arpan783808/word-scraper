@@ -1,7 +1,7 @@
 # Use Puppeteer base image
 FROM ghcr.io/puppeteer/puppeteer:24.2.0
 
-# Switch to root to install system dependencies
+# Set user to root to install dependencies
 USER root
 
 # Install dependencies
@@ -13,7 +13,7 @@ RUN wget -qO- https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor 
     && apt-get update \
     && apt-get install -y google-chrome-stable
 
-# Switch back to the non-root user (default user in Puppeteer image)
+# Switch back to the non-root user
 USER pptruser
 
 # Set the working directory

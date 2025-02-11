@@ -1,18 +1,19 @@
-import puppeteer, { executablePath } from "puppeteer";
+import puppeteer from "puppeteer-extra";
+import StealthPlugin from "puppeteer-extra-plugin-stealth";
 import { dbConnect } from "./db.js";
 import { Word } from "./wordmodel.js";
 
+puppeteer.use(StealthPlugin());
+
 let isScraperRunning = false; // Prevent overlapping executions
 
-export const scrapeWord = async () => {
+export const scrapeWord = async (retryCount = 0) => {
   if (isScraperRunning) {
     console.log("⚠️ Scraper is already running, skipping this execution...");
     return;
   }
 
-  isScraperRunning = true; // Lock execution
-  // console.log("hi");
-  // console.log(puppeteer.executablePath);
+  isScraperRunning = true;
   console.log("✅ Scraper started...");
 
   const browser = await puppeteer.launch({
@@ -23,19 +24,20 @@ export const scrapeWord = async () => {
       "--disable-setuid-sandbox",
       "--disable-dev-shm-usage",
       "--disable-gpu",
+      "--disable-blink-features=AutomationControlled",
       "--disable-features=site-per-process",
+      "--window-size=1920,1080",
     ],
   });
 
-  const page = await browser.newPage();
-
   try {
+    const page = await browser.newPage();
     const url = "https://www.merriam-webster.com/";
     console.log(`🔍 Visiting: ${url}`);
 
     await page.goto(url, {
       waitUntil: "networkidle2",
-      timeout: 1200000,
+      timeout: 120000, // 2 minutes max wait
     });
 
     // Extract words
@@ -46,10 +48,7 @@ export const scrapeWord = async () => {
     });
 
     if (!words.length) {
-      console.log("❌ No words found.");
-      await browser.close();
-      isScraperRunning = false;
-      return;
+      throw new Error("❌ No words found.");
     }
 
     console.log(`✅ Extracted words: ${words.join(", ")}`);
@@ -63,7 +62,7 @@ export const scrapeWord = async () => {
 
       let meaning = await page.evaluate(() => {
         const element = document.querySelector(".dtText");
-        return element ? element.textContent.trim() : "/";
+        return element ? element.textContent.trim() : null;
       });
 
       const rawPronunciation = await page.evaluate(() => {
@@ -80,6 +79,7 @@ export const scrapeWord = async () => {
         continue;
       }
 
+      // Fetch pronunciation audio
       const pronunciationPage = `https://howjsay.com/how-to-pronounce-${word}`;
       await page.goto(pronunciationPage, { waitUntil: "domcontentloaded" });
 
@@ -89,12 +89,10 @@ export const scrapeWord = async () => {
       });
 
       if (!pronunciationAudioUrl) {
-        console.log("❌ No pronunciation audio found.");
-      } else {
-        console.log(`✅ Pronunciation Audio URL: ${pronunciationAudioUrl}`);
+        console.log(`⚠️ No pronunciation audio for ${word}`);
       }
 
-      // Remove all content inside brackets (both () and [])
+      // Remove brackets (both () and [])
       meaning = meaning.replace(/\([^)]*\)|\[[^\]]*\]/g, "").trim();
 
       const existingWord = await Word.findOne({ word });
@@ -112,13 +110,14 @@ export const scrapeWord = async () => {
     }
   } catch (error) {
     console.error("🚨 Error in scraper:", error);
+    if (retryCount < 2) {
+      console.log(`🔄 Retrying... (${retryCount + 1}/2)`);
+      await scrapeWord(retryCount + 1);
+    }
   } finally {
     await browser.close();
-    isScraperRunning = false; // Unlock execution
+    isScraperRunning = false;
   }
 };
 
-// Run once on startup
-scrapeWord();
 
-// Schedule scraper to run every 2 minutes
