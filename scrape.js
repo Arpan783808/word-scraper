@@ -12,12 +12,21 @@ export const scrapeWord = async () => {
   }
 
   isScraperRunning = true; // Lock execution
-
+  console.log("hi");
+  console.log(puppeteer.executablePath);
   console.log("✅ Scraper started...");
 
   const browser = await puppeteer.launch({
-    headless: "new",
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    args: [
+      "--disable-setuid-sandbox",
+      "--no-sandbox",
+      "--single-process",
+      "--no-zygote,",
+    ],
+    executablePath:
+      process.env.NODE_ENV === "production"
+        ? process.env.PUPPETEER_EXECUTABLE_PATH
+        : puppeteer.executablePath(),
   });
 
   const page = await browser.newPage();
