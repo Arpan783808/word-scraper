@@ -1,11 +1,24 @@
-FROM ghcr.io/puppeteer/puppeteer:24.2.0
+# Use a lightweight Node.js image
+FROM node:18-slim
 
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
-    PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable
+# Install dependencies
+RUN apt-get update && apt-get install -y wget unzip \
+    && wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb \
+    && apt-get install -y ./google-chrome-stable_current_amd64.deb \
+    && rm -rf /var/lib/apt/lists/* ./google-chrome-stable_current_amd64.deb
 
-WORKDIR /usr/src/app 
+# Set working directory
+WORKDIR /usr/src/app
+
+# Copy package.json and install dependencies
 COPY package*.json ./
-RUN npm ci
+RUN npm install
+
+# Copy the entire project
 COPY . .
+
+# Expose the port
 EXPOSE 3001
-CMD ["node","index.js"]
+
+# Start the application
+CMD ["node", "index.js"]

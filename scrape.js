@@ -12,21 +12,21 @@ export const scrapeWord = async () => {
   }
 
   isScraperRunning = true; // Lock execution
-  console.log("hi");
-  console.log(puppeteer.executablePath);
+  // console.log("hi");
+  // console.log(puppeteer.executablePath);
   console.log("✅ Scraper started...");
 
   const browser = await puppeteer.launch({
-    args: [
-      "--disable-setuid-sandbox",
-      "--no-sandbox",
-      "--single-process",
-      "--no-zygote,",
-    ],
     executablePath:
-      process.env.NODE_ENV === "production"
-        ? process.env.PUPPETEER_EXECUTABLE_PATH
-        : puppeteer.executablePath(),
+      process.env.CHROME_EXECUTABLE_PATH || "/usr/bin/google-chrome-stable",
+    headless: true,
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-gpu",
+      "--disable-features=site-per-process",
+    ],
   });
 
   const page = await browser.newPage();
@@ -37,7 +37,7 @@ export const scrapeWord = async () => {
 
     await page.goto(url, {
       waitUntil: "networkidle2",
-      timeout: 60000,
+      timeout: 1200000,
     });
 
     // Extract words
@@ -101,7 +101,12 @@ export const scrapeWord = async () => {
 
       const existingWord = await Word.findOne({ word });
       if (!existingWord) {
-        await Word.create({ word, meaning, pronounciation, audiourl: pronunciationAudioUrl });
+        await Word.create({
+          word,
+          meaning,
+          pronounciation,
+          audiourl: pronunciationAudioUrl,
+        });
         console.log(`✅ Saved: ${word} -> ${meaning} -> ${pronounciation}`);
       } else {
         console.log(`⚠️ Word already exists: ${word}`);
