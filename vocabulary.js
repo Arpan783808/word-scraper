@@ -7,7 +7,7 @@ puppeteer.use(StealthPlugin());
 
 let isScraperRunning = false;
 
-export const scrapeWord = async (retryCount = 0) => {
+export const vocabulary = async (retryCount = 0) => {
   if (isScraperRunning) {
     console.log("⚠️ Scraper is already running, skipping execution...");
     return;
@@ -15,7 +15,8 @@ export const scrapeWord = async (retryCount = 0) => {
   isScraperRunning = true;
   console.log("✅ Scraper started...");
   const browser = await puppeteer.launch({
-    executablePath: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    executablePath:
+      "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     headless: true,
     args: [
       "--no-sandbox",
@@ -30,7 +31,7 @@ export const scrapeWord = async (retryCount = 0) => {
 
   try {
     const page = await browser.newPage();
-    const url = "https://www.oxfordlearnersdictionaries.com/mywordlist/106";
+    const url = "https://www.vocabulary.com/lists/vxlwpv4i/strange-birds";
     console.log(`🔍 Visiting: ${url}`);
 
     await page.goto(url, {
@@ -39,16 +40,16 @@ export const scrapeWord = async (retryCount = 0) => {
     });
 
     const wordsData = await page.evaluate(() => {
-      return Array.from(document.querySelectorAll("#myWordlist tr"))
-        .map((row) => {
-          const linkElement = row.querySelector("td a");
-          if (!linkElement) return null;
-          return {
-            word: linkElement.textContent.trim(),
-            href: linkElement.href,
-          };
+      return Array.from(document.querySelectorAll(".wordlist"))
+        .map((parentLi) => {
+          return Array.from(parentLi.querySelectorAll(".words li a")).map(
+            (linkElement) => ({
+              word: linkElement.textContent.trim(),
+              href: linkElement.href,
+            })
+          );
         })
-        .filter(Boolean);
+        .flat(); // Flatten the array to merge nested lists into a single array
     });
 
     if (!wordsData.length) {
@@ -64,17 +65,17 @@ export const scrapeWord = async (retryCount = 0) => {
       await page.goto(href, { waitUntil: "domcontentloaded" });
 
       let meaning = await page.evaluate(() => {
-        const element = document.querySelector("span.def");
+        const element = document.querySelector(".short");
         return element ? element.textContent.trim() : null;
       });
 
       let sentence = await page.evaluate(() => {
-        const element = document.querySelector("span.x");
+        const element = document.querySelector(".long");
         return element ? element.textContent.trim() : null;
       });
 
       let pronounciation = await page.evaluate(() => {
-        const element = document.querySelector("div.phons_br span.phon");
+        const element = document.querySelector(".ipa-section span");
         return element ? element.textContent.trim() : null;
       });
 
@@ -103,7 +104,7 @@ export const scrapeWord = async (retryCount = 0) => {
           meaning,
           sentence: sentence || "N/A",
           pronounciation: pronounciation || "N/A",
-          audiourl:pronunciationAudioUrl
+          audiourl: pronunciationAudioUrl,
         });
         console.log(`✅ Saved: ${word} -> ${meaning}`);
       } else {
@@ -114,7 +115,7 @@ export const scrapeWord = async (retryCount = 0) => {
     console.error("🚨 Error in scraper:", error);
     if (retryCount < 2) {
       console.log(`🔄 Retrying... (${retryCount + 1}/2)`);
-      await scrapeWord(retryCount + 1);
+      await vocabulary(retryCount + 1);
     }
   } finally {
     await browser.close();
